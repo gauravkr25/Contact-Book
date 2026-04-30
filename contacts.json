@@ -1,1 +1,16 @@
-[]
+[
+    {
+        "name": "Gaurav Kumar",
+        "phone": "8002078284",
+        "email": "gauravkumar1092004@gmail.com",
+        "category": "Personal",
+        "date_added": "2026-05-01 00:00"
+    },
+    {
+        "owner": "c1d7f9e5-f24c-44b8-a017-3e3ea902049d",
+        "name": "Gaurav Kumar",
+        "phone": "5545465462",
+        "email": "gauravkumar1092004@gmail.com",
+        "category": "Personal"
+    }
+]
