@@ -9,10 +9,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Hardcoded Secret Key (No longer needed in .env)
 app.secret_key = 'dev_key_2026_contact_manager_99'
-
-# --- EMAIL CONFIG ---
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -20,7 +17,6 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USER')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASS')
 mail = Mail(app)
 
-# --- AUTH SETUP ---
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -46,7 +42,6 @@ def load_db(file):
 def save_db(file, data):
     with open(file, 'w') as f: json.dump(data, f, indent=4)
 
-# --- ROUTES ---
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
