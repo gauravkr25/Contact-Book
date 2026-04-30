@@ -2,16 +2,22 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
-import json, os, uuid
+from dotenv import load_dotenv
+import json, os, uuid, datetime
+
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_super_secret_key'
 
+# Hardcoded Secret Key (No longer needed in .env)
+app.secret_key = 'dev_key_2026_contact_manager_99'
+
+# --- EMAIL CONFIG ---
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USER') 
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASS')
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USER')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASS')
 mail = Mail(app)
 
 # --- AUTH SETUP ---
@@ -28,12 +34,13 @@ class User(UserMixin):
 def load_user(user_id):
     users = load_db('users.json')
     user_data = next((u for u in users if u['id'] == user_id), None)
-    if user_data:
-        return User(user_data['id'], user_data['email'])
+    if user_data: return User(user_data['id'], user_data['email'])
     return None
 
 def load_db(file):
-    if not os.path.exists(file): return []
+    if not os.path.exists(file): 
+        with open(file, 'w') as f: json.dump([], f)
+        return []
     with open(file, 'r') as f: return json.load(f)
 
 def save_db(file, data):
@@ -44,68 +51,69 @@ def save_db(file, data):
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email, password = request.form.get('email'), request.form.get('password')
         users = load_db('users.json')
         if any(u['email'] == email for u in users):
-            flash('Email already exists!')
+            flash('Email already registered!')
             return redirect(url_for('register'))
-        
-        new_user = {'id': str(uuid.uuid4()), 'email': email, 'password': generate_password_hash(password)}
-        users.append(new_user)
+        users.append({'id': str(uuid.uuid4()), 'email': email, 'password': generate_password_hash(password)})
         save_db('users.json', users)
+        flash('Registration successful! Please login.')
         return redirect(url_for('login'))
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email, password = request.form.get('email'), request.form.get('password')
         users = load_db('users.json')
         user = next((u for u in users if u['email'] == email), None)
-        
         if user and check_password_hash(user['password'], password):
-            user_obj = User(user['id'], user['email'])
-            login_user(user_obj)
+            login_user(User(user['id'], user['email']))
             return redirect(url_for('index'))
-        flash('Invalid credentials')
+        flash('Invalid email or password.')
     return render_template('login.html')
 
 @app.route('/')
 @login_required
 def index():
-    contacts = load_db('contacts.json')
-    # Show only contacts belonging to this user
-    user_contacts = [c for c in contacts if c.get('owner') == current_user.id]
-    return render_template('index.html', contacts=user_contacts)
-
-@app.route('/send_email/<email_address>')
-@login_required
-def send_email(email_address):
-    try:
-        msg = Message("Hello from Contact Book",
-                      sender=app.config['MAIL_USERNAME'],
-                      recipients=[email_address])
-        msg.body = "This is a test email sent from your Python Contact Manager!"
-        mail.send(msg)
-        flash(f'Email sent to {email_address}!')
-    except Exception as e:
-        flash(f'Error: {str(e)}')
-    return redirect(url_for('index'))
+    query = request.args.get('search', '').lower()
+    all_contacts = load_db('contacts.json')
+    contacts = [c for c in all_contacts if c.get('owner') == current_user.id]
+    if query:
+        contacts = [c for c in contacts if query in c['name'].lower() or query in c['phone']]
+    return render_template('index.html', contacts=contacts, query=query)
 
 @app.route('/add', methods=['POST'])
 @login_required
 def add_contact():
+    name, phone, email, cat = request.form.get('name'), request.form.get('phone'), request.form.get('email'), request.form.get('category')
     contacts = load_db('contacts.json')
-    contacts.append({
+    new_contact = {
+        'id': str(uuid.uuid4()),
         'owner': current_user.id,
-        'name': request.form.get('name'),
-        'phone': request.form.get('phone'),
-        'email': request.form.get('email'),
-        'category': request.form.get('category')
-    })
+        'name': name, 'phone': phone, 'email': email, 'category': cat,
+        'date_added': datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+    contacts.append(new_contact)
     save_db('contacts.json', contacts)
+    
+    if email:
+        try:
+            msg = Message("Contact Saved!", sender=app.config['MAIL_USERNAME'], recipients=[email])
+            msg.body = f"Hi {name}, you have been added to {current_user.email}'s Contact Book."
+            mail.send(msg)
+            flash('Contact added and Email sent!')
+        except: flash('Contact added, but Email failed.')
+    return redirect(url_for('index'))
+
+@app.route('/delete/<string:contact_id>')
+@login_required
+def delete_contact(contact_id):
+    contacts = load_db('contacts.json')
+    contacts = [c for c in contacts if not (c.get('id') == contact_id and c.get('owner') == current_user.id)]
+    save_db('contacts.json', contacts)
+    flash('Contact deleted.')
     return redirect(url_for('index'))
 
 @app.route('/logout')

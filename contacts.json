@@ -12,5 +12,14 @@
         "phone": "5545465462",
         "email": "gauravkumar1092004@gmail.com",
         "category": "Personal"
+    },
+    {
+        "id": "502751f0-cb46-41f6-a406-26957b996d8e",
+        "owner": "c1d7f9e5-f24c-44b8-a017-3e3ea902049d",
+        "name": "Gaurav Kumar",
+        "phone": "8002078284",
+        "email": "gauravkumar1092004@gmail.com",
+        "category": "Personal",
+        "date_added": "2026-05-01 00:42"
     }
 ]
